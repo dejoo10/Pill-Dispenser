@@ -202,11 +202,7 @@ In single-coil (wave drive) mode, only one coil is energized at any given instan
 > | **3** | 0 | 0 | **1** | 0 | Coil C Energized |
 > | **4** | 0 | 0 | 0 | **1** | Coil D Energized |
 >
-> <div align="center">
->   <img src="docs/images/table1.png" alt="Table 1. Stepper Motor sequence" width="550" />
-> </div>
->
-> * **Caption:** **Table 1.** Stepper Motor single-coil driving sequence.
+> * **Caption:** **Table 1.** Stepper Motor single-coil driving sequence truth table.
 
 ##### Dual-Coil Stepper Motor Driving (High Torque)
 To produce higher holding and rotational torque, two adjacent stator coils can be energized simultaneously (e.g., $A+B \to B+C \to C+D \to D+A$). This pulls the rotor between two magnetic poles, increasing holding force and reducing step slipping under mechanical load.
@@ -232,10 +228,6 @@ To produce higher holding and rotational torque, two adjacent stator coils can b
 > | **2** | 0 | **1** | **1** | 0 | Coils B & C Energized |
 > | **3** | 0 | 0 | **1** | **1** | Coils C & D Energized |
 > | **4** | **1** | 0 | 0 | **1** | Coils D & A Energized |
->
-> <div align="center">
->   <img src="docs/images/table2.png" alt="Table 2. Dual coil driving sequence for stepper Motor" width="550" />
-> </div>
 >
 > * **Caption:** **Table 2.** Dual-coil driving sequence truth table for maximum torque.
 
@@ -420,10 +412,6 @@ This fine resolution enables precise positioning of the circular carousel over t
 > | **6** | 0 | 0 | **1** | **1** | Dual Phase C + D |
 > | **7** | 0 | 0 | 0 | **1** | Single Phase D |
 > | **8** | **1** | 0 | 0 | **1** | Dual Phase D + A |
->
-> <div align="center">
->   <img src="docs/images/table3.png" alt="Table 3. Half-stepping driving sequence" width="550" />
-> </div>
 >
 > * **Caption:** **Table 3.** 8-step half-stepping sequence truth table driving 4096 steps per full rotation.
 
