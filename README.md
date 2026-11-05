@@ -488,20 +488,26 @@ When a compartment rotates above the drop opening, the pill falls under gravity 
 > [!TIP]
 > ### 🧮 Calculation 1: Pill Free-Fall Time
 >
-> To determine the arrival window for the pill dropping from the dispenser base to the piezo sensor plate, the theoretical free-fall time under gravity is computed:
+> To determine the arrival window for the pill dropping from the dispenser base to the piezo sensor plate, the theoretical free-fall time under gravity is computed using kinematic free-fall equations:
 >
-> $$t = \sqrt{\frac{2H}{g}} = \sqrt{\frac{2 \times 0.035}{9.8}} = 0.085\text{s}$$
+> **1. Governing Kinematic Equation:**
 >
-> Where:
-> * $H = 3.5\text{ cm} = 0.035\text{ m}$ (Height of the dispenser base chute)
-> * $g = 9.8\text{ m/s}^2$ (Gravitational acceleration)
-> * $t = 0.085\text{ s} = 85\text{ ms}$ (Calculated drop duration)
+> $$H = v_0 t + \frac{1}{2} g t^2$$
 >
-> <div align="center">
->   <img src="docs/images/calculation1.png" alt="Calculation 1. Pill drop time calculation" width="450" />
-> </div>
+> Assuming the pill begins its descent from rest ($v_0 = 0\text{ m/s}$):
 >
-> * **Caption:** **Calculation 1.** Mathematical derivation of free-fall time ($t = 0.085\text{ s}$), utilized as the detection threshold delay in firmware.
+> $$H = \frac{1}{2} g t^2 \implies t^2 = \frac{2H}{g} \implies t = \sqrt{\frac{2H}{g}}$$
+>
+> **2. Given Physical Parameters:**
+> * **Drop Height ($H$):** $3.5\text{ cm} = 0.035\text{ m}$ (vertical clearance between the chute and sensor)
+> * **Gravitational Acceleration ($g$):** $9.8\text{ m/s}^2$
+> * **Initial Velocity ($v_0$):** $0\text{ m/s}$
+>
+> **3. Step-by-Step Substitution & Solution:**
+>
+> $$t = \sqrt{\frac{2 \times 0.035\text{ m}}{9.8\text{ m/s}^2}} = \sqrt{\frac{0.070}{9.8}} = \sqrt{0.00714286}\text{ s} \approx 0.084515\text{ s} \approx 0.085\text{ s} = 85\text{ ms}$$
+>
+> * **Caption:** **Calculation 1.** Mathematical derivation of pill drop duration ($t \approx 0.085\text{ s} = 85\text{ ms}$), utilized as the calibrated detection threshold window in firmware.
 
 ---
 
