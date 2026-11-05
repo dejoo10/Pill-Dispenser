@@ -45,14 +45,15 @@
   - [3.4 Software & Firmware Implementation](#34-software--firmware-implementation)
     - [3.4.1 Firmware Architecture Overview](#341-firmware-architecture-overview)
     - [3.4.2 Hardware Pin Mapping & Setup](#342-hardware-pin-mapping--setup)
-    - [3.4.3 Modular Data Structure](#343-modular-data-structure)
+    - [3.4.3 State Machine Definition](#343-state-machine-definition)
     - [3.4.4 Core Software Functions](#344-core-software-functions)
     - [3.4.5 Half-Step Sequence Implementation](#345-half-step-sequence-implementation)
-    - [3.4.6 I/O and Interrupt Initialization (`setup_io`)](#346-io-and-interrupt-initialization-setup_io)
+    - [3.4.6 I/O and Interrupt Initialization](#346-io-and-interrupt-initialization)
     - [3.4.7 Stepper Motor Homing & Calibration (`calibrate_motor`)](#347-stepper-motor-homing--calibration-calibrate_motor)
-    - [3.4.8 Precise Pill Dispensing Routine (`run_motor`)](#348-precise-pill-dispensing-routine-run_motor)
-    - [3.4.9 Visual Feedback & Button Handling (`blink_led`, `wait_for_button_press`)](#349-visual-feedback--button-handling-blink_led-wait_for_button_press)
-    - [3.4.10 Main Control Loop (`main`)](#3410-main-control-loop-main)
+    - [3.4.8 Precise Pill Dispensing Routine (`run_motor` & `dispense_pills`)](#348-precise-pill-dispensing-routine-run_motor--dispense_pills)
+    - [3.4.9 Visual Feedback & Button Handling (`handle_led_state`, `control_led`)](#349-visual-feedback--button-handling-handle_led_state-control_led)
+    - [3.4.10 Main State Machine Execution Loop (`main`)](#3410-main-state-machine-execution-loop-main)
+    - [3.4.11 Complete Firmware Source Code](#3411-complete-firmware-source-code)
 - [4. Technical Specifications & Requirements](#4-technical-specifications--requirements)
   - [4.1 Functional Requirements](#41-functional-requirements)
   - [4.2 Quality & Reliability Requirements](#42-quality--reliability-requirements)
@@ -300,7 +301,7 @@ graph TD
     subgraph Actuators ["Actuation & Feedback"]
         DRIVER["ULN2003 Stepper Driver\n(GPIO 2, 3, 6, 13)"]
         MOTOR["28BYJ-48 Stepper Motor\n(Dispenser Wheel)"]
-        LED["Status Indicator LED\n(GPIO 20)"]
+        LED["Status Indicator LED\n(GPIO 22)"]
     end
 
     BTN -->|Start / Step Trigger| PINS
@@ -327,43 +328,41 @@ graph TD
 
 ### 3.2 Design Overview & Finite State Machine (FSM)
 
-The operational firmware follows a **Finite State Machine (FSM)** with six distinct functional phases:
+The operational firmware follows a deterministic **Finite State Machine (FSM)** defined by the `enum State` in code:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> STATE_START : Power On / Reset
+    [*] --> WAITING_TO_CALIBRATE : Power On / Reset
 
-    STATE_START --> STATE_CALIBRATION : Button SW_2 Pressed\n(LED Blinking -> Solid)
-    note right of STATE_START
-      LED blinks steadily
-      Awaiting initial trigger
+    WAITING_TO_CALIBRATE --> CALIBRATING : Button Press (GPIO 7 == 0)\nLED Blinking (1 Hz) -> Solid ON
+    note right of WAITING_TO_CALIBRATE
+      LED blinks at 1 Hz
+      Awaiting user trigger
     end note
 
-    STATE_CALIBRATION --> STATE_CALIBRATION_COMPLETE : 2nd Opto-Fork Falling Edge Detected\n(Steps Counted)
-    note right of STATE_CALIBRATION
-      Motor rotates continuously
-      Measures steps/revolution
+    CALIBRATING --> WAITING_TO_DISPENSE : Opto-Fork 2nd Falling Edge Detected\n(calib_index Measured)
+    note right of CALIBRATING
+      Motor advances 1 step at a time
+      Homing flag synchronizes step count
     end note
 
-    STATE_CALIBRATION_COMPLETE --> STATE_DISPENSING : Button SW_2 Pressed\n(Start Schedule)
-    note right of STATE_CALIBRATION_COMPLETE
+    WAITING_TO_DISPENSE --> DISPENSING : Button Press (GPIO 7 == 0)\nStart Dispensing Cycle
+    note right of WAITING_TO_DISPENSE
       Wheel positioned at home slot
-      LED solid ON (System Ready)
+      LED solid ON (Ready)
     end note
 
-    STATE_DISPENSING --> STATE_DISPENSE_CHECK : Advance 1 Compartment\n(512 Half-Steps)
+    DISPENSING --> DISPENSING : Advance 1 Compartment (calib_index / 8)\nSleep 30s (Dose < 7)
     
-    STATE_DISPENSE_CHECK --> STATE_DISPENSING : Drop Verified (IRQ Fired)\nWait Interval (30s) / Dose < 7
-    STATE_DISPENSE_CHECK --> STATE_ERROR : No Impact Detected within Drop Window
-    
-    note right of STATE_ERROR
+    DISPENSING --> ERROR : Drop Check Failed (Piezo Logic Inactive)
+    note right of ERROR
       LED blinks 5 times
       Alerts caregiver/patient
     end note
     
-    STATE_ERROR --> STATE_DISPENSING : Resume / Next Interval
-    STATE_DISPENSE_CHECK --> STATE_COMPLETE : Dose == 7 Dispensed
-    STATE_COMPLETE --> STATE_START : Re-initialize / Restart Routine
+    ERROR --> DISPENSING : Resume / Next Interval
+    DISPENSING --> DISPENSED : 7 Doses Completed (dispense_count >= 7)
+    DISPENSED --> WAITING_TO_CALIBRATE : reset_dispenser()\nRe-arm System
 ```
 
 > [!NOTE]
@@ -515,61 +514,65 @@ When a compartment rotates above the drop opening, the pill falls under gravity 
 
 #### 3.4.1 Firmware Architecture Overview
 
-The firmware is written in C using the official **Raspberry Pi Pico C/C++ SDK**. It uses non-blocking hardware interrupts (`hardware/gpio.h`) for sensor capture and accurate delays for motor phase timing.
+The firmware is written in C using the official **Raspberry Pi Pico C/C++ SDK**. It employs a non-blocking **Finite State Machine (FSM)**, hardware interrupts (`hardware/irq.h`, `hardware/gpio.h`) for optical edge detection, and precise step delays for motor phase timing.
 
 #### 3.4.2 Hardware Pin Mapping & Setup
 
-| Signal Name | RP Pico GPIO | Pin Type | Direction | Configuration / Function |
+| Variable Name in Code | RP Pico GPIO | Pin Type | Direction | Hardware Connection / Function |
 | :--- | :---: | :---: | :---: | :--- |
-| `STEPPER_IN1` | **GPIO 2** | Digital | Output | Stepper Motor Phase A |
-| `STEPPER_IN2` | **GPIO 3** | Digital | Output | Stepper Motor Phase B |
-| `STEPPER_IN3` | **GPIO 6** | Digital | Output | Stepper Motor Phase C |
-| `STEPPER_IN4` | **GPIO 13** | Digital | Output | Stepper Motor Phase D |
-| `SW_2_BUTTON` | **GPIO 7** | Digital | Input | User pushbutton with internal pull-up resistor |
-| `STATUS_LED`  | **GPIO 20** | Digital | Output | Visual status indicator |
-| `PIEZO_PIN`   | **GPIO 27** | Digital/ADC | Input | Impact signal; configured with falling-edge IRQ |
-| `OPTO_FORK`   | **GPIO 28** | Digital | Input | Optical slotted switch input with pull-up resistor |
+| `Stepper_coilD` | **GPIO 2** | Digital | Output | ULN2003 Driver IN4 (Phase D) |
+| `Stepper_coilC` | **GPIO 3** | Digital | Output | ULN2003 Driver IN3 (Phase C) |
+| `Stepper_coilB` | **GPIO 6** | Digital | Output | ULN2003 Driver IN2 (Phase B) |
+| `Stepper_coilA` | **GPIO 13** | Digital | Output | ULN2003 Driver IN1 (Phase A) |
+| `button1_pin` | **GPIO 7** | Digital | Input | User Pushbutton (internal pull-up enabled) |
+| `led_pin` | **GPIO 22** | Digital | Output | Status Indicator LED (cues state & errors) |
+| `piezo_pin` | **GPIO 27** | Digital/ADC | Input | Piezoelectric impact plate (internal pull-up enabled) |
+| `opto_pin` | **GPIO 28** | Digital | Input | Optical slotted interrupter (falling-edge IRQ enabled) |
 
-#### 3.4.3 Modular Data Structure
+#### 3.4.3 State Machine Definition
 
-To ensure clean state management, the firmware encapsulates dispenser properties within a single C struct:
+The firmware state architecture is governed by an explicit `enum State`:
 
 ```c
-struct PillDispenser {
-    bool isCalibrated;          // True when homing calibration has succeeded
-    bool isCalibrating;         // Flag indicating calibration is underway
-    int  totalPillsDispensed;   // Cumulative count of successfully verified doses
-    int  stepsPerRevolution;    // Calibrated step count for one full 360-degree rotation
+enum State {
+    WAITING_TO_CALIBRATE,  // Startup: LED blinks at 1 Hz awaiting button press
+    CALIBRATING,           // Homing: Motor steps continuously until optical flag is found
+    WAITING_TO_DISPENSE,   // Primed: Wheel at home slot, LED solid ON, awaiting dose trigger
+    DISPENSING,            // Active: 7-day dispensing cycle advancing 1 compartment at a time
+    DISPENSED,             // Cycle Completed: Resets state machine for the next period
+    ERROR                  // Exception: Pill drop verification failed (LED blinks 5 times)
 };
+
+enum State current_state = WAITING_TO_CALIBRATE;
 ```
 
 #### 3.4.4 Core Software Functions
 
 | Function Signature | Description |
 | :--- | :--- |
-| `void initializePillDispenser(struct PillDispenser *dispenser)` | Clears state flags, resets dose counters, and sets default step variables. |
-| `void setup_io(struct PillDispenser *dispenser)` | Configures GPIO directions, pull-up resistors, and initializes the piezo interrupt handler. |
-| `void calibrate_motor(struct PillDispenser *dispenser)` | Rotates the motor until two consecutive opto-fork edges are detected, measuring steps per revolution. |
-| `void run_motor(int slices, struct PillDispenser *dispenser)` | Advances the motor by the required number of half-steps corresponding to one compartment. |
-| `void piezo_callback(uint gpio, uint32_t events)` | Interrupt handler triggered on the falling edge of the piezo sensor upon pill impact. |
-| `void wait_for_button_press(struct PillDispenser *dispenser)` | Manages user interaction, starting calibration and dispensing cycles on button presses. |
-| `void blink_led(void)` | Blinks the status LED 5 times to alert the user of a failed pill drop. |
-| `void restart(struct PillDispenser *dispenser)` | Re-initializes state variables to prepare for a new 7-day cycle. |
+| `void calibrate_motor(void)` | Rotates the carousel through two falling edges of the opto-fork to determine `calib_index` (exact steps/rev). |
+| `void run_motor(int steps)` | Steps through `HalfStep_Sequence` driving coils D, C, B, A with a $4\text{ ms}$ delay per step. |
+| `void opto_falling_edge(uint gpio, uint32_t events)` | High-priority ISR triggered when the slotted flag breaks the opto-fork beam ($1 \to 0$). |
+| `void dispense_pills(void)` | Advances the carousel by one slice ($\text{calib\_index} / 8$) and initiates drop verification. |
+| `void check_piezo_sensor(void)` | Samples `piezo_pin` for impact logic transitions to confirm physical delivery and increment dose count. |
+| `void handle_led_state(void)` | Controls non-blocking LED blinking (1 Hz standby, solid ON active, 5-blink error pattern). |
+| `void control_led(bool state)` | Sets digital output level on `led_pin` (GPIO 22). |
+| `void reset_dispenser(void)` | Clears dose count (`dispense_count = 0`), resets flags, and arms the system for the next cycle. |
 
 #### 3.4.5 Half-Step Sequence Implementation
 
-The 8-step half-stepping sequence is defined as a static 2D array in firmware:
+The 8-step half-stepping sequence drives the 4 motor phases in alternating single and dual-coil states:
 
 ```c
-const uint8_t HALF_STEP_SEQUENCE[8][4] = {
-    {1, 0, 0, 0},  // Step 0: Coil A
-    {1, 1, 0, 0},  // Step 1: Coil A + B
-    {0, 1, 0, 0},  // Step 2: Coil B
-    {0, 1, 1, 0},  // Step 3: Coil B + C
-    {0, 0, 1, 0},  // Step 4: Coil C
-    {0, 0, 1, 1},  // Step 5: Coil C + D
-    {0, 0, 0, 1},  // Step 6: Coil D
-    {1, 0, 0, 1}   // Step 7: Coil D + A
+static const uint HalfStep_Sequence[8][4] = {
+    {1, 0, 0, 0},  // Step 0: Coil D
+    {1, 1, 0, 0},  // Step 1: Coil D + C
+    {0, 1, 0, 0},  // Step 2: Coil C
+    {0, 1, 1, 0},  // Step 3: Coil C + B
+    {0, 0, 1, 0},  // Step 4: Coil B
+    {0, 0, 1, 1},  // Step 5: Coil B + A
+    {0, 0, 0, 1},  // Step 6: Coil A
+    {1, 0, 0, 1}   // Step 7: Coil A + D
 };
 ```
 
@@ -585,12 +588,40 @@ const uint8_t HALF_STEP_SEQUENCE[8][4] = {
 > * **Caption:** **Figure 18.** Source code definition of the 8-state half-stepping sequence matrix.
 > * *(Insert image: `![Figure 18: Half Step Sequence Code](docs/images/figure18.png)`)*
 
-#### 3.4.6 I/O and Interrupt Initialization (`setup_io`)
+#### 3.4.6 I/O and Interrupt Initialization
 
-The `setup_io` routine configures pin modes and enables the falling-edge interrupt for the piezo sensor:
+All peripheral pins and the optical interrupt handler are initialized during system boot:
+
+```c
+// Initialize LED status indicator
+gpio_init(led_pin);
+gpio_set_dir(led_pin, GPIO_OUT);
+
+// Initialize user pushbutton with internal pull-up
+gpio_init(button1_pin);
+gpio_set_dir(button1_pin, GPIO_IN);
+gpio_pull_up(button1_pin);
+
+// Initialize 4-phase stepper motor driver outputs
+gpio_init(Stepper_coilD); gpio_set_dir(Stepper_coilD, GPIO_OUT);
+gpio_init(Stepper_coilC); gpio_set_dir(Stepper_coilC, GPIO_OUT);
+gpio_init(Stepper_coilB); gpio_set_dir(Stepper_coilB, GPIO_OUT);
+gpio_init(Stepper_coilA); gpio_set_dir(Stepper_coilA, GPIO_OUT);
+
+// Initialize opto-fork sensor with falling-edge interrupt
+gpio_init(opto_pin);
+gpio_set_dir(opto_pin, GPIO_IN);
+gpio_pull_up(opto_pin);
+gpio_set_irq_enabled_with_callback(opto_pin, GPIO_IRQ_EDGE_FALL, true, &opto_falling_edge);
+
+// Initialize piezoelectric impact sensor
+gpio_init(piezo_pin);
+gpio_set_dir(piezo_pin, GPIO_IN);
+gpio_pull_up(piezo_pin);
+```
 
 > [!NOTE]
-> ### 📷 Figure 19: Function `setup_io`
+> ### 📷 Figure 19: Function `setup_io` / Hardware Initialization
 >
 > ```
 > ┌────────────────────────────────────────────────────────────────────────┐
@@ -598,112 +629,438 @@ The `setup_io` routine configures pin modes and enables the falling-edge interru
 > │                   setup_io Function Source Code/Flow                   │
 > └────────────────────────────────────────────────────────────────────────┘
 > ```
-> * **Caption:** **Figure 19.** Source code for `setup_io` configuring GPIOs, pull-ups, and the piezo edge-fall interrupt.
+> * **Caption:** **Figure 19.** Source code for hardware initialization configuring GPIOs, pull-ups, and the optical sensor falling-edge interrupt.
 > * *(Insert image: `![Figure 19: setup_io function](docs/images/figure19.png)`)*
-
-```c
-void setup_io(struct PillDispenser *dispenser) {
-    // Initialize stepper motor control outputs
-    const uint stepper_pins[] = {2, 3, 6, 13};
-    for (int i = 0; i < 4; i++) {
-        gpio_init(stepper_pins[i]);
-        gpio_set_dir(stepper_pins[i], GPIO_OUT);
-        gpio_put(stepper_pins[i], 0);
-    }
-
-    // Initialize optical slotted switch (Opto-Fork) with pull-up
-    gpio_init(28);
-    gpio_set_dir(28, GPIO_IN);
-    gpio_pull_up(28);
-
-    // Initialize user pushbutton SW_2
-    gpio_init(7);
-    gpio_set_dir(7, GPIO_IN);
-    gpio_pull_up(7);
-
-    // Initialize LED status indicator
-    gpio_init(20);
-    gpio_set_dir(20, GPIO_OUT);
-    gpio_put(20, 0);
-
-    // Initialize Piezoelectric sensor with falling-edge interrupt
-    gpio_init(27);
-    gpio_set_dir(27, GPIO_IN);
-    gpio_pull_up(27);
-    gpio_set_irq_enabled_with_callback(27, GPIO_IRQ_EDGE_FALL, true, &piezo_callback);
-}
-```
 
 #### 3.4.7 Stepper Motor Homing & Calibration (`calibrate_motor`)
 
-Because stepper motors provide relative positioning without absolute feedback upon startup, a homing calibration routine is required:
-1. The motor rotates continuously in half-step mode with a $2\text{ ms}$ inter-step delay.
-2. The opto-fork output on GPIO 28 is sampled on each step.
-3. Upon detecting the first falling edge ($1 \to 0$), an internal step counter (`stepsThisRevolution`) resets to 0.
-4. The motor continues rotating until the opto-fork flag triggers a second falling edge.
-5. The accumulated step count is stored in `dispenser->stepsPerRevolution` ($\approx 4096\text{ steps}$), setting `isCalibrated = true` and de-energizing all coils to prevent idle heating.
+Because stepper motors provide relative positioning without absolute feedback upon startup, a homing calibration routine is executed:
+1. The motor rotates continuously in half-step mode with a $4\text{ ms}$ delay per step.
+2. The opto-fork output on GPIO 28 triggers `opto_falling_edge()` when the slotted homing flag passes the optical beam.
+3. Upon detecting the first falling edge, `revIndex` is reset to 0.
+4. When the second falling edge occurs, the accumulated step count is stored in `calib_index` ($\approx 4096\text{ steps}$), setting `is_calibrated = true` and transitioning state to `WAITING_TO_DISPENSE`.
 
-#### 3.4.8 Precise Pill Dispensing Routine (`run_motor`)
+```c
+void calibrate_motor(void) {
+    is_calibrated = false;
+    FallingEdge = false;
+    while (FallingEdge == false) {
+        run_motor(1);
+    }
+    FallingEdge = false;
+    while (FallingEdge == false) {
+        run_motor(1);
+    }
+    is_calibrated = true;
+    printf("Calibration completed. Steps per revolution: %u\n", calib_index);
+}
+```
 
-The carousel is divided into 8 physical sectors ($1\text{ calibration slot} + 7\text{ medication slots}$). Advancing one compartment requires:
+#### 3.4.8 Precise Pill Dispensing Routine (`run_motor` & `dispense_pills`)
 
-$$\text{Steps per Slice} = \frac{\text{stepsPerRevolution}}{8} = \frac{4096}{8} = 512\text{ half-steps}$$
+Advancing the carousel by one compartment ($1/8$ of a full rotation) requires:
 
-The `run_motor(slices, dispenser)` function iterates through 512 step cycles, applying the corresponding values from `HALF_STEP_SEQUENCE` to GPIOs 2, 3, 6, and 13 with a $2\text{ ms}$ delay per step.
+$$\text{Steps per Slice} = \frac{\text{calib\_index}}{8} \approx \frac{4096}{8} = 512\text{ half-steps}$$
 
-#### 3.4.9 Visual Feedback & Button Handling (`blink_led`, `wait_for_button_press`)
+```c
+void run_motor(int steps) {
+    for (int i = 0; i < steps; i++) {
+        gpio_put(Stepper_coilD, HalfStep_Sequence[stepIndex][0]);
+        gpio_put(Stepper_coilC, HalfStep_Sequence[stepIndex][1]);
+        gpio_put(Stepper_coilB, HalfStep_Sequence[stepIndex][2]);
+        gpio_put(Stepper_coilA, HalfStep_Sequence[stepIndex++][3]);
+        revIndex++;
+        if (stepIndex >= 8) {
+            stepIndex = 0;
+        }
+        sleep_ms(4);
+    }
+}
+```
 
-User interaction and error reporting are handled through the status LED and pushbutton:
-* **System Startup:** The status LED blinks continuously, indicating the system is waiting for the user to initiate calibration via button `SW_2`.
-* **Calibration Complete:** The LED turns solid ON, signaling the system is primed and ready.
-* **Dose Delivery:** Pressing `SW_2` starts the dispensing sequence. Pills are dispensed every 30 seconds (configured for demonstration; easily adjustable to 24-hour intervals).
-* **Dispensing Verification & Error Alert:**
-  * When a pill drops onto the piezo sensor, the falling edge triggers `piezo_callback`, setting the global `drop` flag to `true`.
-  * If no drop is detected within the expected time window, `blink_led()` blinks the LED 5 times to alert the user of a missing dose.
+#### 3.4.9 Visual Feedback & Button Handling (`handle_led_state`, `control_led`)
+
+User feedback is communicated through the LED and monitored via the pushbutton:
+* **Standby Mode (`WAITING_TO_CALIBRATE`):** LED blinks at 1 Hz using non-blocking timer logic (`time_us_64() % 1000000 < 500000`).
+* **Active Operation (`CALIBRATING`, `DISPENSING`):** LED remains solid ON.
+* **Error Alert (`ERROR`):** LED blinks 5 times if a drop fails to register on the piezo sensor.
 
 > [!NOTE]
-> ### 📷 Figure 20: Function `blink_led`
+> ### 📷 Figure 20: Function `handle_led_state`
 >
 > ```
 > ┌────────────────────────────────────────────────────────────────────────┐
 > │                       [ FIGURE 20 PLACEHOLDER ]                        │
-> │                   blink_led Function Source Listing                    │
+> │                   handle_led_state Function Source                     │
 > └────────────────────────────────────────────────────────────────────────┘
 > ```
-> * **Caption:** **Figure 20.** Source code for `blink_led` handling visual alerts when a pill drop fails to register.
+> * **Caption:** **Figure 20.** Source code for `handle_led_state` providing visual status indication and error reporting.
 > * *(Insert image: `![Figure 20: blink_led function](docs/images/figure20.png)`)*
 
 ```c
-void blink_led(void) {
-    for (int i = 0; i < 5; i++) {
-        gpio_put(20, 1);
-        sleep_ms(200);
-        gpio_put(20, 0);
-        sleep_ms(200);
+void handle_led_state(void) {
+    static int error_blink_count = 0;
+
+    switch (current_state) {
+        case WAITING_TO_CALIBRATE:
+            if (time_us_64() % 1000000 < 500000) {
+                control_led(true);
+            } else {
+                control_led(false);
+            }
+            break;
+
+        case CALIBRATING:
+        case DISPENSING:
+            control_led(true);
+            break;
+
+        case WAITING_TO_DISPENSE:
+            control_led(false);
+            break;
+
+        case DISPENSED:
+            reset_dispenser();
+            break;
+
+        case ERROR:
+            if (error_blink_count < 5) {
+                if (time_us_64() % 1000000 < 500000) control_led(true);
+                else control_led(false);
+            } else {
+                control_led(true);
+            }
+            break;
     }
 }
 ```
 
-#### 3.4.10 Main Control Loop (`main`)
+#### 3.4.10 Main State Machine Execution Loop (`main`)
 
 ```c
 int main() {
-    // Initialize standard C I/O libraries for USB-serial debug output
     stdio_init_all();
+    // Hardware setup omitted for brevity (see 3.4.6)
 
-    // Instantiate and initialize dispenser data structure
-    struct PillDispenser myPillDispenser;
-    initializePillDispenser(&myPillDispenser);
+    while (true) {
+        switch (current_state) {
+            case WAITING_TO_CALIBRATE:
+                handle_led_state();
+                if (gpio_get(button1_pin) == 0) {
+                    current_state = CALIBRATING;
+                    calibrate_motor();
+                }
+                break;
 
-    // Initialize all GPIOs, pull-up resistors, and interrupts
-    setup_io(&myPillDispenser);
+            case CALIBRATING:
+                if (is_calibrated) {
+                    control_led(true);
+                    current_state = WAITING_TO_DISPENSE;
+                }
+                break;
 
-    // Enter primary user event handling loop
-    wait_for_button_press(&myPillDispenser);
+            case WAITING_TO_DISPENSE:
+                control_led(true);
+                if (gpio_get(button1_pin) == 0) {
+                    current_state = DISPENSING;
+                }
+                break;
 
+            case DISPENSING:
+                control_led(true);
+                for (int i = 1; i <= MAX_DISPENSE_COUNT; i++) {
+                    dispense_pills();
+                    if (i == MAX_DISPENSE_COUNT) {
+                        current_state = DISPENSED;
+                        break;
+                    }
+                    sleep_ms(DISPENSE_INTERVAL_MS);
+                }
+                break;
+
+            case DISPENSED:
+                control_led(true);
+                reset_dispenser();
+                break;
+
+            case ERROR:
+                handle_led_state();
+                break;
+        }
+        sleep_ms(100);
+    }
     return 0;
 }
 ```
+
+#### 3.4.11 Complete Firmware Source Code
+
+The full firmware implementation is available in [`main.c`](file:///home/daygme/Pill-Dispenser/main.c) and [`Code.txt`](file:///home/daygme/Pill-Dispenser/Code.txt).
+
+<details>
+<summary><b>📜 Click to view Complete Firmware Source Code (main.c)</b></summary>
+
+```c
+#include <stdio.h>
+#include <string.h>
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include "hardware/irq.h"
+
+#define STEPS_IN_EACH_REVOLUTION 4096
+#define DISPENSE_INTERVAL_MS 30000
+#define MAX_DISPENSE_COUNT 7
+#define CALIBRATION_TIMEOUT_MS 3000
+#define ERR_BLINK_DELAY_MS 500
+
+/* Pin Definitions */
+const uint led_pin = 22;
+const uint button1_pin = 7;
+
+/* Motor Pins Definition (ULN2003 Driver to 28BYJ-48 Stepper) */
+const uint Stepper_coilD = 2;
+const uint Stepper_coilC = 3;
+const uint Stepper_coilB = 6;
+const uint Stepper_coilA = 13;
+
+/* Sensor Pins */
+const uint opto_pin = 28;
+const uint piezo_pin = 27;
+
+/* State Machine Definition */
+enum State {
+    WAITING_TO_CALIBRATE,
+    CALIBRATING,
+    WAITING_TO_DISPENSE,
+    DISPENSING,
+    DISPENSED,
+    ERROR
+};
+
+enum State current_state = WAITING_TO_CALIBRATE;
+
+int dispense_count = 0;
+volatile bool is_calibrated = false;
+
+static volatile uint stepIndex = 0;
+static volatile uint revIndex = 0;
+static uint16_t adc_value = 0;
+int prevValue = 0;
+static uint calib_index = 0;
+static volatile bool FallingEdge = false;
+
+/* Function prototypes */
+void calibrate_motor(void);
+void run_motor(int steps);
+void opto_falling_edge(uint gpio, uint32_t events);
+void reset_dispenser(void);
+void dispense_pills(void);
+void check_piezo_sensor(void);
+void handle_led_state(void);
+void control_led(bool state);
+
+/* 8-step half-stepping sequence */
+static const uint HalfStep_Sequence[8][4] = {
+    {1, 0, 0, 0},
+    {1, 1, 0, 0},
+    {0, 1, 0, 0},
+    {0, 1, 1, 0},
+    {0, 0, 1, 0},
+    {0, 0, 1, 1},
+    {0, 0, 0, 1},
+    {1, 0, 0, 1}
+};
+
+/*----------------- Main Section ------------------------------------ */
+int main() {
+    stdio_init_all();
+
+    // Initialize LED pin
+    gpio_init(led_pin);
+    gpio_set_dir(led_pin, GPIO_OUT);
+
+    // Initialize button pin
+    gpio_init(button1_pin);
+    gpio_set_dir(button1_pin, GPIO_IN);
+    gpio_pull_up(button1_pin);
+
+    // Initialize motor driver outputs
+    gpio_init(Stepper_coilD); gpio_set_dir(Stepper_coilD, GPIO_OUT);
+    gpio_init(Stepper_coilC); gpio_set_dir(Stepper_coilC, GPIO_OUT);
+    gpio_init(Stepper_coilB); gpio_set_dir(Stepper_coilB, GPIO_OUT);
+    gpio_init(Stepper_coilA); gpio_set_dir(Stepper_coilA, GPIO_OUT);
+
+    // Initialize opto-fork sensor with falling-edge interrupt
+    gpio_init(opto_pin);
+    gpio_set_dir(opto_pin, GPIO_IN);
+    gpio_pull_up(opto_pin);
+    gpio_set_irq_enabled_with_callback(opto_pin, GPIO_IRQ_EDGE_FALL, true, &opto_falling_edge);
+
+    // Initialize piezo sensor
+    gpio_init(piezo_pin);
+    gpio_set_dir(piezo_pin, GPIO_IN);
+    gpio_pull_up(piezo_pin);
+
+    while (true) {
+        switch (current_state) {
+            case WAITING_TO_CALIBRATE:
+                handle_led_state();
+                if (gpio_get(button1_pin) == 0) {
+                    current_state = CALIBRATING;
+                    calibrate_motor();
+                }
+                break;
+
+            case CALIBRATING:
+                if (is_calibrated) {
+                    control_led(true);
+                    current_state = WAITING_TO_DISPENSE;
+                }
+                break;
+
+            case WAITING_TO_DISPENSE:
+                control_led(true);
+                if (gpio_get(button1_pin) == 0) {
+                    current_state = DISPENSING;
+                }
+                break;
+
+            case DISPENSING:
+                control_led(true);
+                for (int i = 1; i <= MAX_DISPENSE_COUNT; i++) {
+                    dispense_pills();
+                    if (i == MAX_DISPENSE_COUNT) {
+                        current_state = DISPENSED;
+                        break;
+                    }
+                    sleep_ms(DISPENSE_INTERVAL_MS);
+                }
+                break;
+
+            case DISPENSED:
+                control_led(true);
+                reset_dispenser();
+                break;
+
+            case ERROR:
+                handle_led_state();
+                break;
+        }
+        sleep_ms(100);
+    }
+    return 0;
+}
+
+void calibrate_motor(void) {
+    is_calibrated = false;
+    FallingEdge = false;
+    while (FallingEdge == false) {
+        run_motor(1);
+    }
+    FallingEdge = false;
+    while (FallingEdge == false) {
+        run_motor(1);
+    }
+    is_calibrated = true;
+    printf("Calibration completed. Steps per revolution: %u\n", calib_index);
+}
+
+void run_motor(int steps) {
+    for (int i = 0; i < steps; i++) {
+        gpio_put(Stepper_coilD, HalfStep_Sequence[stepIndex][0]);
+        gpio_put(Stepper_coilC, HalfStep_Sequence[stepIndex][1]);
+        gpio_put(Stepper_coilB, HalfStep_Sequence[stepIndex][2]);
+        gpio_put(Stepper_coilA, HalfStep_Sequence[stepIndex++][3]);
+        revIndex++;
+        if (stepIndex >= 8) {
+            stepIndex = 0;
+        }
+        sleep_ms(4);
+    }
+}
+
+void reset_dispenser(void) {
+    dispense_count = 0;
+    is_calibrated = false;
+    current_state = WAITING_TO_CALIBRATE;
+}
+
+void dispense_pills(void) {
+    int runTime = 1;
+    if (is_calibrated == true) {
+        uint steps = (calib_index > 0) ? (runTime * calib_index / 8) : (STEPS_IN_EACH_REVOLUTION / 8);
+        run_motor(steps);
+        check_piezo_sensor();
+    }
+}
+
+void check_piezo_sensor(void) {
+    static bool pill_dispensed = false;
+    adc_value = gpio_get(piezo_pin);
+    if (adc_value != prevValue) {
+        if (!adc_value) {
+            pill_dispensed = true;
+        }
+    }
+    if (pill_dispensed) {
+        dispense_count++;
+        pill_dispensed = false;
+        if (dispense_count >= MAX_DISPENSE_COUNT) {
+            current_state = DISPENSED;
+        }
+    }
+    prevValue = adc_value;
+}
+
+void opto_falling_edge(uint gpio, uint32_t events) {
+    if (current_state == CALIBRATING) {
+        FallingEdge = true;
+        if (is_calibrated == false) {
+            calib_index = revIndex;
+        }
+        revIndex = 0;
+        is_calibrated = true;
+    } else if (current_state == DISPENSING) {
+        dispense_count++;
+        if (dispense_count >= MAX_DISPENSE_COUNT) {
+            current_state = DISPENSED;
+        }
+    }
+}
+
+void control_led(bool state) {
+    gpio_put(led_pin, state);
+}
+
+void handle_led_state(void) {
+    static int error_blink_count = 0;
+    switch (current_state) {
+        case WAITING_TO_CALIBRATE:
+            if (time_us_64() % 1000000 < 500000) control_led(true);
+            else control_led(false);
+            break;
+        case CALIBRATING:
+        case DISPENSING:
+            control_led(true);
+            break;
+        case WAITING_TO_DISPENSE:
+            control_led(false);
+            break;
+        case DISPENSED:
+            reset_dispenser();
+            break;
+        case ERROR:
+            if (error_blink_count < 5) {
+                if (time_us_64() % 1000000 < 500000) control_led(true);
+                else control_led(false);
+            } else {
+                control_led(true);
+            }
+            break;
+    }
+}
+```
+</details>
 
 ---
 

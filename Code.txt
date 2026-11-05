@@ -1,0 +1,329 @@
+
+
+
+#include <stdio.h>
+#include <string.h>
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include "hardware/irq.h"
+
+
+#define STEPS_IN_EACH_REVOLUTION 4096
+#define DISPENSE_INTERVAL_MS 30000
+#define MAX_DISPENSE_COUNT 7
+#define CALIBRATION_TIMEOUT_MS 3000
+#define ERR_BLINK_DELAY_MS 500
+
+/* Define your pins here */
+const uint led_pin = 22;
+//const uint led_pin2 = 21;
+//const uint led_pin3 = 20;
+
+const uint button1_pin = 7;
+
+//const uint motor_pins[] = {2, 3, 6, 13};
+/* Motor Pins Definition */
+const uint Stepper_coilD = 2;
+const uint Stepper_coilC = 3;
+const uint Stepper_coilB = 6;
+const uint Stepper_coilA = 13;
+
+
+//const uint Opto_fork_pin = 28;
+const uint opto_pin = 28;
+const uint piezo_pin = 27;
+
+/* Define state variables */
+enum State { WAITING_TO_CALIBRATE, CALIBRATING, WAITING_TO_DISPENSE, DISPENSING, DISPENSED, ERROR };
+enum State current_state = WAITING_TO_CALIBRATE;
+
+
+int dispense_count = 0;
+volatile bool is_calibrated = false;
+
+static volatile uint stepIndex = 0;
+static volatile uint revIndex = 0;
+static uint16_t adc_value = 0;
+int prevValue = 0;
+static uint calib_index = 0;
+static volatile bool FallingEdge = false;
+static volatile uint fill = 0;
+
+
+
+/* Function prototypes */
+void calibrate_motor();
+void run_motor(int steps);
+void opto_falling_edge();
+void reset_dispenser();
+void dispense_pills();
+void check_piezo_sensor();
+void handle_led_state();
+void control_led(bool state);
+//void piezo_con_sensor();
+
+
+static const uint HalfStep_Sequence[8][4] = {
+        {1, 0, 0, 0},
+        {1, 1, 0, 0},
+        {0, 1, 0, 0},
+        {0, 1, 1, 0},
+        {0, 0, 1, 0},
+        {0, 0, 1, 1},
+        {0, 0, 0, 1},
+        {1, 0, 0, 1}
+};
+
+
+/*-----------------Main section of the code--------------------------------------------------------- */
+int main() {
+    stdio_init_all();
+
+    // Initialize LED pin
+    gpio_init(led_pin);
+    gpio_set_dir(led_pin, GPIO_OUT);
+
+    // Initialize button pins
+    gpio_init(button1_pin);
+    gpio_set_dir(button1_pin, GPIO_IN);
+    gpio_pull_up(button1_pin);
+
+    // Initialize motor pins
+    /*
+    for (int i = 0; i < 4; i++) {
+        gpio_init(motor_pins[i]);
+        gpio_set_dir(motor_pins[i], GPIO_OUT);
+    }
+     */
+    gpio_init(Stepper_coilD);
+    gpio_set_dir(Stepper_coilD, GPIO_OUT);
+    gpio_init(Stepper_coilC);
+    gpio_set_dir(Stepper_coilC, GPIO_OUT);
+    gpio_init(Stepper_coilB);
+    gpio_set_dir(Stepper_coilB, GPIO_OUT);
+    gpio_init(Stepper_coilA);
+    gpio_set_dir(Stepper_coilA, GPIO_OUT);
+
+
+    // Initialize opto sensor and set IRQ
+    gpio_init(opto_pin);
+    gpio_set_dir(opto_pin, GPIO_IN);
+    gpio_pull_up(opto_pin);
+    gpio_set_irq_enabled_with_callback(opto_pin, GPIO_IRQ_EDGE_FALL, true, opto_falling_edge);
+
+    // Initialize piezo sensor
+    gpio_init(piezo_pin);
+    gpio_set_dir(piezo_pin, GPIO_IN);
+    gpio_pull_up(piezo_pin);
+
+    while (true){
+        switch (current_state) {
+            case WAITING_TO_CALIBRATE:
+                handle_led_state();
+                // Waiting for button press to calibrate
+                if (gpio_get(button1_pin) == 0) {
+                    printf("Button is pressed\n");
+                    printf("Calibration will start \n");
+                    current_state = CALIBRATING;
+                    calibrate_motor();
+                }
+                break;
+
+            case CALIBRATING:
+                // Waiting for calibration to complete
+                if (is_calibrated) {
+                    printf("calibration completed \n");
+                    control_led(true);
+                    current_state = WAITING_TO_DISPENSE;
+                }
+                break;
+
+            case WAITING_TO_DISPENSE:
+                //waiting for another button press, so that it can start dispensing
+                control_led(true);
+                //printf("press button to start dispensing \n");
+                if(gpio_get(button1_pin)==0){
+                    current_state = DISPENSING;
+                }
+                break;
+
+            case DISPENSING:
+                printf("I am here \n");
+                control_led(true);
+                //dispense_pills();
+
+                for(int i = 1; i < 8; i++){
+                    dispense_pills();
+                    printf("Dispense %d \n", i);
+                    //break;
+
+                    if (i == 7){
+                        printf("Dispensing round completed\n");
+                        break;
+                    }
+
+                    //sleep_ms(30000);
+                }
+
+                //dispense_pills();
+                //sleep_ms(30);
+                break;
+
+            case DISPENSED:
+                // Optional: Add logic for post-dispensing state
+                control_led(true);
+                printf("Dispenser will now reset \n");
+                reset_dispenser();
+                break;
+
+            case ERROR:
+                handle_led_state();
+                // error handling logic
+                break;
+        }
+        sleep_ms(100);
+    }
+
+    return 0;
+}
+
+void calibrate_motor(){
+    is_calibrated = false;
+    FallingEdge = false;
+    while (FallingEdge == false){
+        run_motor(1);
+    }
+    FallingEdge = false;
+    while (FallingEdge == false){
+        run_motor(1);
+    }
+
+    // Wait for calibration to complete or timeout
+    //sleep_ms(CALIBRATION_TIMEOUT_MS);
+    is_calibrated = true; // Set calibration flag
+    printf("Calibration is completed \n");
+    printf("Number of steps per revolution: %u\n", calib_index);
+}
+
+void run_motor(int steps) {
+    for(int i  = 0; i < steps; i++) {
+        gpio_put(Stepper_coilD, HalfStep_Sequence[stepIndex][0]);
+        gpio_put(Stepper_coilC, HalfStep_Sequence[stepIndex][1]);
+        gpio_put(Stepper_coilB, HalfStep_Sequence[stepIndex][2]);
+        gpio_put(Stepper_coilA, HalfStep_Sequence[stepIndex++][3]);
+        revIndex++;
+        if (stepIndex >= 8) {
+            stepIndex = 0;
+        }
+        sleep_ms(4);
+    }
+}
+
+void reset_dispenser() {
+    // Reset dispenser state
+    dispense_count = 0;
+    printf("..dispense count %d\n", dispense_count);
+    is_calibrated = false;
+    current_state = WAITING_TO_CALIBRATE;
+}
+
+void dispense_pills() {
+    int runTime = 1;
+    if (time_us_64() % (uint64_t)DISPENSE_INTERVAL_MS == 0){
+        if(is_calibrated == true){
+            //run_motor(STEPS_IN_EACH_REVOLUTION / 8);
+            run_motor(runTime * calib_index / 8);
+            //run_motor(runTime * STEPS_IN_EACH_REVOLUTION / 8);
+            check_piezo_sensor();
+            // Dispense pills every DISPENSE_INTERVAL_MS
+        }else{
+            printf("Run motor fail, motor not calibrated.\n");
+        }
+    }
+}
+ //This is the old piezo sensor function
+
+void check_piezo_sensor() {
+    static bool pill_dispensed = false;
+    run_motor(STEPS_IN_EACH_REVOLUTION / 8);
+    adc_value = gpio_get(piezo_pin);
+    if (adc_value != prevValue) {
+        if (!adc_value) {
+            printf("Pill dispensed\n");
+            pill_dispensed = true;
+        }
+    }
+    if (pill_dispensed) {
+        dispense_count++;
+        if (dispense_count >= MAX_DISPENSE_COUNT) {
+            current_state = DISPENSED;
+        }
+    }
+    prevValue = adc_value;
+}
+
+void opto_falling_edge() {
+    if (current_state == CALIBRATING) {
+        // Calibration logic
+        FallingEdge = true;
+        if(is_calibrated == false){
+            calib_index = revIndex;
+        }
+        revIndex = 0;
+        is_calibrated = true;
+        //sleep_ms(5);
+    } else if (current_state == DISPENSING) {
+        printf("amount dispensed %d \n", dispense_count);
+        dispense_count++;
+        if (dispense_count >= MAX_DISPENSE_COUNT) {
+            printf("Dispense completed \n");
+            current_state = DISPENSED;
+        }
+    }
+
+}
+void control_led(bool state) {
+    gpio_put(led_pin, state);
+}
+
+void handle_led_state() {
+    static int error_blink_count = 0;
+
+    switch (current_state) {
+        case WAITING_TO_CALIBRATE:
+            // LED blinks in this state
+            if (time_us_64() % 1000000 < 500000) {
+                control_led(true);
+            } else {
+                control_led(false);
+            }
+            break;
+
+        case CALIBRATING:
+        case DISPENSING:
+            control_led(true);
+            break;
+
+        case WAITING_TO_DISPENSE:
+            control_led(false);
+            break;
+
+        case DISPENSED:
+            // Reset dispenser state, dispense count and error blink count
+            reset_dispenser();
+            break;
+
+        case ERROR:
+            // LED blinks 5 times if there is an error
+            if (error_blink_count < 5) {
+                if (time_us_64() % 1000000 < 500000) {
+                    control_led(true);
+                } else {
+                    control_led(false);
+                }
+            } else {
+                control_led(true); // Stay on after error blinking
+            }
+            break;
+    }
+}
