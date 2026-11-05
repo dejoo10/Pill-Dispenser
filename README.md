@@ -167,14 +167,11 @@ The unipolar stepper motor contains four stator windings (Coils A, B, C, D) conn
 > [!NOTE]
 > ### 📷 Figure 1: Unipolar Stepper Motor
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 1 PLACEHOLDER ]                         │
-> │                    Unipolar Stepper Motor Diagram                      │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%201.png" alt="Figure 1: Unipolar Stepper Motor" width="450" />
+> </div>
+>
 > * **Caption:** **Figure 1.** Schematic diagram of a unipolar stepper motor showing coils A, B, C, and D connected to a common supply and driven by low-side switching.
-> * *(Insert image: `![Figure 1: Unipolar Stepper Motor](docs/images/figure1.png)`)*
 
 ##### Single-Coil Stepper Motor Driving
 In single-coil (wave drive) mode, only one coil is energized at any given instant. When Coil A is powered, the rotor aligns with Coil A; next, Coil B is energized, advancing the rotor by one full step, followed sequentially by Coil C and Coil D.
@@ -182,27 +179,23 @@ In single-coil (wave drive) mode, only one coil is energized at any given instan
 > [!NOTE]
 > ### 📷 Figures 2 to 5: Single-Coil Stepper Motor Driving Sequence
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                    [ FIGURES 2 TO 5 PLACEHOLDER ]                      │
-> │            Step 1 (Coil A) -> Step 2 (Coil B) ->                       │
-> │            Step 3 (Coil C) -> Step 4 (Coil D)                          │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%202%20to%205.png" alt="Figures 2 to 5: Single-Coil Stepper Motor Driving Sequence" width="600" />
+> </div>
+>
 > * **Caption:** **Figures 2 to 5.** Sequential single-coil energization cycle driving rotor rotation in discrete 90° magnetic step increments.
-> * *(Insert image: `![Figures 2 to 5: Single Coil Drive](docs/images/figures2-5.png)`)*
 
 > [!IMPORTANT]
 > ### 📊 Table 1: Stepper Motor Sequence
->
-> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
-> | :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
-> | **1** | **1** | 0 | 0 | 0 | Coil A Energized |
-> | **2** | 0 | **1** | 0 | 0 | Coil B Energized |
-> | **3** | 0 | 0 | **1** | 0 | Coil C Energized |
-> | **4** | 0 | 0 | 0 | **1** | Coil D Energized |
->
-> * **Caption:** **Table 1.** Stepper Motor single-coil driving sequence truth table.
+
+| Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
+| :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
+| **1** | **1** | 0 | 0 | 0 | Coil A Energized |
+| **2** | 0 | **1** | 0 | 0 | Coil B Energized |
+| **3** | 0 | 0 | **1** | 0 | Coil C Energized |
+| **4** | 0 | 0 | 0 | **1** | Coil D Energized |
+
+* **Caption:** **Table 1.** Stepper Motor single-coil driving sequence truth table.
 
 ##### Dual-Coil Stepper Motor Driving (High Torque)
 To produce higher holding and rotational torque, two adjacent stator coils can be energized simultaneously (e.g., $A+B \to B+C \to C+D \to D+A$). This pulls the rotor between two magnetic poles, increasing holding force and reducing step slipping under mechanical load.
@@ -210,26 +203,25 @@ To produce higher holding and rotational torque, two adjacent stator coils can b
 > [!NOTE]
 > ### 📷 Figures 6 to 9: Dual-Coil Driving Sequence
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                    [ FIGURES 6 TO 9 PLACEHOLDER ]                      │
-> │        Dual Coil A+B -> Dual Coil B+C -> Dual Coil C+D -> D+A          │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
-> * **Caption:** **Figures 6 to 9.** Rotor positions when two adjacent phase windings are energized simultaneously for increased torque.
-> * *(Insert image: `![Figures 6 to 9: Dual Coil Drive](docs/images/figures6-9.png)`)*
+> <div align="center">
+>   <img src="images/Figure%206%20to%207.png" alt="Figures 6 and 7: Dual-Coil Driving Sequence (Part 1)" width="580" />
+>   <br /><br />
+>   <img src="images/Figure%208%20and%209.png" alt="Figures 8 and 9: Dual-Coil Driving Sequence (Part 2)" width="580" />
+> </div>
+>
+> * **Caption:** **Figures 6 to 9.** Rotor positions when two adjacent phase windings are energized simultaneously for increased torque (Figures 6 & 7: phases A+B, B+C; Figures 8 & 9: phases C+D, D+A).
 
 > [!IMPORTANT]
 > ### 📊 Table 2: Dual Coil Driving Sequence for Stepper Motor
->
-> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
-> | :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
-> | **1** | **1** | **1** | 0 | 0 | Coils A & B Energized |
-> | **2** | 0 | **1** | **1** | 0 | Coils B & C Energized |
-> | **3** | 0 | 0 | **1** | **1** | Coils C & D Energized |
-> | **4** | **1** | 0 | 0 | **1** | Coils D & A Energized |
->
-> * **Caption:** **Table 2.** Dual-coil driving sequence truth table for maximum torque.
+
+| Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
+| :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
+| **1** | **1** | **1** | 0 | 0 | Coils A & B Energized |
+| **2** | 0 | **1** | **1** | 0 | Coils B & C Energized |
+| **3** | 0 | 0 | **1** | **1** | Coils C & D Energized |
+| **4** | **1** | 0 | 0 | **1** | Coils D & A Energized |
+
+* **Caption:** **Table 2.** Dual-coil driving sequence truth table for maximum torque.
 
 #### 2.1.3 Piezoelectric Sensors
 
@@ -242,14 +234,11 @@ When a dispensed pill falls and hits the collection surface, the mechanical impa
 > [!NOTE]
 > ### 📷 Figure 10: Working Principle of the Piezo Sensor
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 10 PLACEHOLDER ]                        │
-> │                 Piezo Sensor Operating Principle Diagram               │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2010.png" alt="Figure 10: Working principle of the piezo sensor" width="450" />
+> </div>
+>
 > * **Caption:** **Figure 10.** Working principle of the piezo sensor: mechanical impact creates a transient electrical potential difference ([Robu.in, 2020](#7-references)).
-> * *(Insert image: `![Figure 10: Piezo Sensor](docs/images/figure10.png)`)*
 
 #### 2.1.4 Opto-Fork Sensor (Optical Interrupter)
 
@@ -258,14 +247,11 @@ The **Opto-Fork Sensor** (optical slotted switch) consists of an infrared LED em
 > [!NOTE]
 > ### 📷 Figure 11: Opto-Fork Sensor
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 11 PLACEHOLDER ]                        │
-> │                  Opto-Fork Sensor Structure & Mechanism                │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2011.png" alt="Figure 11: Opto-Fork Sensor" width="520" />
+> </div>
+>
 > * **Caption:** **Figure 11.** Opto-Fork sensor illustrating the infrared emitter, receiver channel, and beam-break detection zone ([Abd, 2022](#7-references)).
-> * *(Insert image: `![Figure 11: Opto-Fork Sensor](docs/images/figure11.png)`)*
 
 ---
 
@@ -390,30 +376,27 @@ This fine resolution enables precise positioning of the circular carousel over t
 > [!NOTE]
 > ### 📷 Figure 14: Stepper Motor Driver
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 14 PLACEHOLDER ]                        │
-> │             28BYJ-48 Stepper Motor & ULN2003 Driver Board              │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2014.png" alt="Figure 14: 28BYJ-48 Stepper Motor & Driver Board" width="400" />
+> </div>
+>
 > * **Caption:** **Figure 14.** 28BYJ-48 unipolar stepper motor connected to the ULN2003 Darlington driver board.
-> * *(Insert image: `![Figure 14: Stepper Motor Driver](docs/images/figure14.png)`)*
 
 > [!IMPORTANT]
 > ### 📊 Table 3: Half-Stepping Driving Sequence
->
-> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Drive Mode / Active Phase |
-> | :--: | :----------: | :----------: | :----------: | :----------: | :------------------------ |
-> | **1** | **1** | 0 | 0 | 0 | Single Phase A |
-> | **2** | **1** | **1** | 0 | 0 | Dual Phase A + B |
-> | **3** | 0 | **1** | 0 | 0 | Single Phase B |
-> | **4** | 0 | **1** | **1** | 0 | Dual Phase B + C |
-> | **5** | 0 | 0 | **1** | 0 | Single Phase C |
-> | **6** | 0 | 0 | **1** | **1** | Dual Phase C + D |
-> | **7** | 0 | 0 | 0 | **1** | Single Phase D |
-> | **8** | **1** | 0 | 0 | **1** | Dual Phase D + A |
->
-> * **Caption:** **Table 3.** 8-step half-stepping sequence truth table driving 4096 steps per full rotation.
+
+| Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Drive Mode / Active Phase |
+| :--: | :----------: | :----------: | :----------: | :----------: | :------------------------ |
+| **1** | **1** | 0 | 0 | 0 | Single Phase A |
+| **2** | **1** | **1** | 0 | 0 | Dual Phase A + B |
+| **3** | 0 | **1** | 0 | 0 | Single Phase B |
+| **4** | 0 | **1** | **1** | 0 | Dual Phase B + C |
+| **5** | 0 | 0 | **1** | 0 | Single Phase C |
+| **6** | 0 | 0 | **1** | **1** | Dual Phase C + D |
+| **7** | 0 | 0 | 0 | **1** | Single Phase D |
+| **8** | **1** | 0 | 0 | **1** | Dual Phase D + A |
+
+* **Caption:** **Table 3.** 8-step half-stepping sequence truth table driving 4096 steps per full rotation.
 
 #### 3.3.2 Development Board & Peripherals
 
@@ -425,14 +408,11 @@ The project utilizes an **RP Pico Add-On Development Board (V1.4)** mounted with
 > [!NOTE]
 > ### 📷 Figure 15: Development Board
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 15 PLACEHOLDER ]                        │
-> │             RP Pico Add-On Development Board Layout (V1.4)             │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2015.png" alt="Figure 15: RP Pico Add-On Development Board Layout" width="460" />
+> </div>
+>
 > * **Caption:** **Figure 15.** RP Pico Add-On Development Board layout showing onboard peripheral connectors, communication channels, and MCU mounting socket.
-> * *(Insert image: `![Figure 15: Development Board](docs/images/figure15.png)`)*
 
 #### 3.3.3 Dispenser Base and Rotating Wheel Assembly
 
@@ -447,26 +427,20 @@ The physical mechanism consists of a 3D-printable cylindrical dispenser base and
 > [!NOTE]
 > ### 📷 Figure 16: Dispenser Wheel and Dispenser Base
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 16 PLACEHOLDER ]                        │
-> │             Dispenser Wheel and Base Mechanical Assembly               │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2016.png" alt="Figure 16: Dispenser Wheel and Dispenser Base Assembly" width="650" />
+> </div>
+>
 > * **Caption:** **Figure 16.** Dispenser wheel and dispenser base assembly housing the 28BYJ-48 stepper motor, chute opening, and piezoelectric impact detector.
-> * *(Insert image: `![Figure 16: Dispenser Wheel and Base](docs/images/figure16.png)`)*
 
 > [!NOTE]
 > ### 📷 Figure 17: Grove and JST Cables
 >
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 17 PLACEHOLDER ]                        │
-> │                    Grove and JST Connecting Cables                     │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+> <div align="center">
+>   <img src="images/Figure%2017.png" alt="Figure 17: Grove and JST Cables" width="600" />
+> </div>
+>
 > * **Caption:** **Figure 17.** JST 6-pin stepper motor harness and Grove 4-pin interface cables utilized for modular sensor routing.
-> * *(Insert image: `![Figure 17: Grove and JST Cables](docs/images/figure17.png)`)*
 
 #### 3.3.4 Drop Physics & Piezo Timing Analysis
 
