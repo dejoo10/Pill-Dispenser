@@ -194,15 +194,18 @@ In single-coil (wave drive) mode, only one coil is energized at any given instan
 > [!IMPORTANT]
 > ### 📊 Table 1: Stepper Motor Sequence
 >
-> <!-- TABLE 1 PLACEHOLDER: Update values when available -->
-> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Description |
-> | :--: | :----------: | :----------: | :----------: | :----------: | :---------- |
-> |  1   |      -       |      -       |      -       |      -       | Active Phase A |
-> |  2   |      -       |      -       |      -       |      -       | Active Phase B |
-> |  3   |      -       |      -       |      -       |      -       | Active Phase C |
-> |  4   |      -       |      -       |      -       |      -       | Active Phase D |
+> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
+> | :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
+> | **1** | **1** | 0 | 0 | 0 | Coil A Energized |
+> | **2** | 0 | **1** | 0 | 0 | Coil B Energized |
+> | **3** | 0 | 0 | **1** | 0 | Coil C Energized |
+> | **4** | 0 | 0 | 0 | **1** | Coil D Energized |
 >
-> * **Caption:** **Table 1.** Stepper Motor single-coil driving sequence truth table.
+> <div align="center">
+>   <img src="docs/images/table1.png" alt="Table 1. Stepper Motor sequence" width="550" />
+> </div>
+>
+> * **Caption:** **Table 1.** Stepper Motor single-coil driving sequence.
 
 ##### Dual-Coil Stepper Motor Driving (High Torque)
 To produce higher holding and rotational torque, two adjacent stator coils can be energized simultaneously (e.g., $A+B \to B+C \to C+D \to D+A$). This pulls the rotor between two magnetic poles, increasing holding force and reducing step slipping under mechanical load.
@@ -222,13 +225,16 @@ To produce higher holding and rotational torque, two adjacent stator coils can b
 > [!IMPORTANT]
 > ### 📊 Table 2: Dual Coil Driving Sequence for Stepper Motor
 >
-> <!-- TABLE 2 PLACEHOLDER: Update values when available -->
-> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Description |
-> | :--: | :----------: | :----------: | :----------: | :----------: | :---------- |
-> |  1   |      -       |      -       |      -       |      -       | Coils A & B Energized |
-> |  2   |      -       |      -       |      -       |      -       | Coils B & C Energized |
-> |  3   |      -       |      -       |      -       |      -       | Coils C & D Energized |
-> |  4   |      -       |      -       |      -       |      -       | Coils D & A Energized |
+> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Active State |
+> | :--: | :----------: | :----------: | :----------: | :----------: | :----------- |
+> | **1** | **1** | **1** | 0 | 0 | Coils A & B Energized |
+> | **2** | 0 | **1** | **1** | 0 | Coils B & C Energized |
+> | **3** | 0 | 0 | **1** | **1** | Coils C & D Energized |
+> | **4** | **1** | 0 | 0 | **1** | Coils D & A Energized |
+>
+> <div align="center">
+>   <img src="docs/images/table2.png" alt="Table 2. Dual coil driving sequence for stepper Motor" width="550" />
+> </div>
 >
 > * **Caption:** **Table 2.** Dual-coil driving sequence truth table for maximum torque.
 
@@ -405,17 +411,20 @@ This fine resolution enables precise positioning of the circular carousel over t
 > [!IMPORTANT]
 > ### 📊 Table 3: Half-Stepping Driving Sequence
 >
-> <!-- TABLE 3 PLACEHOLDER: Update values when available -->
-> | Step Index | IN1 (GPIO 2) | IN2 (GPIO 3) | IN3 (GPIO 6) | IN4 (GPIO 13) | Active Coils / Magnetic State |
-> | :---: | :---: | :---: | :---: | :---: | :--- |
-> | **0** |   -   |   -   |   -   |   -   | Single Phase A |
-> | **1** |   -   |   -   |   -   |   -   | Dual Phase A + B |
-> | **2** |   -   |   -   |   -   |   -   | Single Phase B |
-> | **3** |   -   |   -   |   -   |   -   | Dual Phase B + C |
-> | **4** |   -   |   -   |   -   |   -   | Single Phase C |
-> | **5** |   -   |   -   |   -   |   -   | Dual Phase C + D |
-> | **6** |   -   |   -   |   -   |   -   | Single Phase D |
-> | **7** |   -   |   -   |   -   |   -   | Dual Phase D + A |
+> | Step | Coil A (IN1) | Coil B (IN2) | Coil C (IN3) | Coil D (IN4) | Drive Mode / Active Phase |
+> | :--: | :----------: | :----------: | :----------: | :----------: | :------------------------ |
+> | **1** | **1** | 0 | 0 | 0 | Single Phase A |
+> | **2** | **1** | **1** | 0 | 0 | Dual Phase A + B |
+> | **3** | 0 | **1** | 0 | 0 | Single Phase B |
+> | **4** | 0 | **1** | **1** | 0 | Dual Phase B + C |
+> | **5** | 0 | 0 | **1** | 0 | Single Phase C |
+> | **6** | 0 | 0 | **1** | **1** | Dual Phase C + D |
+> | **7** | 0 | 0 | 0 | **1** | Single Phase D |
+> | **8** | **1** | 0 | 0 | **1** | Dual Phase D + A |
+>
+> <div align="center">
+>   <img src="docs/images/table3.png" alt="Table 3. Half-stepping driving sequence" width="550" />
+> </div>
 >
 > * **Caption:** **Table 3.** 8-step half-stepping sequence truth table driving 4096 steps per full rotation.
 
@@ -479,29 +488,20 @@ When a compartment rotates above the drop opening, the pill falls under gravity 
 > [!TIP]
 > ### 🧮 Calculation 1: Pill Free-Fall Time
 >
-> <!-- CALCULATION 1 PLACEHOLDER: Update values when available -->
+> To determine the arrival window for the pill dropping from the dispenser base to the piezo sensor plate, the theoretical free-fall time under gravity is computed:
 >
-> **Theoretical Free-Fall Equation:**
+> $$t = \sqrt{\frac{2H}{g}} = \sqrt{\frac{2 \times 0.035}{9.8}} = 0.085\text{s}$$
 >
-> $$H = v_0 t + \frac{1}{2} g t^2$$
+> Where:
+> * $H = 3.5\text{ cm} = 0.035\text{ m}$ (Height of the dispenser base chute)
+> * $g = 9.8\text{ m/s}^2$ (Gravitational acceleration)
+> * $t = 0.085\text{ s} = 85\text{ ms}$ (Calculated drop duration)
 >
-> Since the initial vertical velocity is zero ($v_0 = 0$):
+> <div align="center">
+>   <img src="docs/images/calculation1.png" alt="Calculation 1. Pill drop time calculation" width="450" />
+> </div>
 >
-> $$t = \sqrt{\frac{2H}{g}}$$
->
-> Given:
-> * Fall height $H = 3.5\text{ cm} = 0.035\text{ m}$
-> * Acceleration due to gravity $g = 9.8\text{ m/s}^2$
->
-> $$t = \sqrt{\frac{2 \times 0.035\text{ m}}{9.8\text{ m/s}^2}} = \sqrt{\frac{0.070}{9.8}} = \sqrt{0.007143}\text{ s} \approx 0.0845\text{ s} \approx 85\text{ ms}$$
->
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                   [ CALCULATION 1 PLACEHOLDER ]                        │
-> │              Detailed Mathematical Derivation & Working                │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
-> * **Caption:** **Calculation 1.** Mathematical derivation of free-fall time ($\approx 85\text{ ms}$) used to set the interrupt timing window.
+> * **Caption:** **Calculation 1.** Mathematical derivation of free-fall time ($t = 0.085\text{ s}$), utilized as the detection threshold delay in firmware.
 
 ---
 
