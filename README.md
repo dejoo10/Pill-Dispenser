@@ -590,6 +590,16 @@ void calibrate_motor(void) {
 Advancing the carousel by one compartment ($1/8$ of a full rotation) requires:
 
 ```c
+### 3.4.8 Precise Pill Dispensing Routine (`run_motor` & `dispense_pills`)
+
+Advancing the carousel by one compartment (1/8 of a full rotation) requires:
+
+\[
+\text{Steps per Slice} = \frac{\texttt{calib\_index}}{8}
+\approx \frac{4096}{8}
+= 512 \text{ half-steps}
+\]
+........
 \[
 \text{Steps per Slice} = \frac{\text{calib\_index}}{8} \approx \frac{4096}{8} = 512\text{ half-steps}
 \]
