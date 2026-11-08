@@ -293,14 +293,12 @@ graph TD
 > [!NOTE]
 > ### 📷 Figure 12: Connection Overview
 >
-> ```
- <div align="center">
-   <img src="images/Figure-12.png" alt="Figure 12: Connection Overview" width="400" />
- </div>
-> ```
+>
+> <div align="center">
+>   <img src="images/Figure-12.png" alt="Figure 12: Connection Overview" width="600" />
+> </div>
+>
 > * **Caption:** **Figure 12.** Hardware connection overview illustrating the complete schematic wiring between RP Pico, motor driver, opto-fork, piezo sensor, and controls.
-> * *(Insert image: `![Figure 12: Connection Overview](docs/images/figure12.png)`)*
-
 ---
 
 ### 3.2 Design Overview & Finite State Machine (FSM)
@@ -345,14 +343,12 @@ stateDiagram-v2
 > [!NOTE]
 > ### 📷 Figure 13: Design Flowchart
 >
-> ```
- <div align="center">
-   <img src="images/Figure-13.png" alt="Figure 13: Design flow chat" width="400" />
- </div>
-
+>
+> <div align="center">
+>   <img src="images/Figure-13.png" alt="Figure 13: Design flow chat" width="400" />
+> </div>
+>
 > * **Caption:** **Figure 13.** System design flowchart depicting step-by-step program execution, calibration loops, dispensing cycles, and interrupt monitoring.
-> * *(Insert image: `![Figure 13: Design Flowchart](docs/images/figure13.png)`)*
-
 ---
 
 ### 3.3 Hardware Subsystems & Mechanical Assembly
