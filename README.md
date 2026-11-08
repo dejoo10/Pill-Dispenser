@@ -13,7 +13,7 @@
   <b>A smart, reliable, and user-centric embedded medication management system designed to automate 7-day pill schedules, enhance patient independence, and prevent missed doses.</b>
 </p>
 
-*Developed for the course **Embedded System Programming with C** | Degree Programme in Information and Communication Technology | **Metropolia University of Applied Sciences***
+*Developed for the course **Embedded System Programming with C** | Degree Programme in Information and Communication Technology *
 
 ---
 
@@ -93,7 +93,7 @@ The primary objective of this project is to develop a reliable **Automated 7-Day
 * Enhancing patient autonomy and peace of mind while reducing caregiver burden.
 
 > [!NOTE]
-> This project was developed as a core coursework project for **Embedded System Programming with C** in the Information and Communication Technology degree program at **Metropolia University of Applied Sciences**.
+> This project was developed as a core coursework project for **Embedded System Programming with C** in the Information and Communication Technology degree program.
 
 ### 1.2 Project Scope
 
@@ -340,15 +340,6 @@ stateDiagram-v2
     DISPENSED --> WAITING_TO_CALIBRATE : reset_dispenser()\nRe-arm System
 ```
 
-> [!NOTE]
-> ### 📷 Figure 13: Design Flowchart
->
->
-> <div align="center">
->   <img src="images/Figure-13.png" alt="Figure 13: Design flow chat" width="400" />
-> </div>
->
-> * **Caption:** **Figure 13.** System design flowchart depicting step-by-step program execution, calibration loops, dispensing cycles, and interrupt monitoring.
 ---
 
 ### 3.3 Hardware Subsystems & Mechanical Assembly
@@ -565,10 +556,6 @@ gpio_set_dir(piezo_pin, GPIO_IN);
 gpio_pull_up(piezo_pin);
 ```
 
-> [!NOTE]
-> ### 📷 Figure 19: Function `setup_io` / Hardware Initialization
->
-> ```
 
 
 #### 3.4.7 Stepper Motor Homing & Calibration (`calibrate_motor`)
