@@ -77,7 +77,7 @@ Medication adherence is essential for managing chronic diseases and avoiding pre
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        CORE CAPABILITIES                               │
 ├───────────────────┬──────────────────────────────┬─────────────────────┤
-│ ⏰ Automated Dosing│ 🎯 Closed-Loop Verification  │ 💡 Intuitive UI     │
+│⏰Automated Dosing |  🎯Closed-Loop Verification │ 💡 Intuitive UI    │
 │ Precise scheduling│ Piezoelectric impact sensing │ LED status cues and │
 │ avoids missed meds│ confirms physical delivery   │ one-touch operation │
 └───────────────────┴──────────────────────────────┴─────────────────────┘
@@ -294,10 +294,9 @@ graph TD
 > ### 📷 Figure 12: Connection Overview
 >
 > ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 12 PLACEHOLDER ]                        │
-> │                  Hardware Connection Wiring Overview                   │
-> └────────────────────────────────────────────────────────────────────────┘
+ <div align="center">
+   <img src="images/Figure-12.png" alt="Figure 12: Connection Overview" width="400" />
+ </div>
 > ```
 > * **Caption:** **Figure 12.** Hardware connection overview illustrating the complete schematic wiring between RP Pico, motor driver, opto-fork, piezo sensor, and controls.
 > * *(Insert image: `![Figure 12: Connection Overview](docs/images/figure12.png)`)*
@@ -347,11 +346,10 @@ stateDiagram-v2
 > ### 📷 Figure 13: Design Flowchart
 >
 > ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 13 PLACEHOLDER ]                        │
-> │                    Design Flowchart & State Logic                      │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
+ <div align="center">
+   <img src="images/Figure-13.png" alt="Figure 13: Design flow chat" width="400" />
+ </div>
+
 > * **Caption:** **Figure 13.** System design flowchart depicting step-by-step program execution, calibration loops, dispensing cycles, and interrupt monitoring.
 > * *(Insert image: `![Figure 13: Design Flowchart](docs/images/figure13.png)`)*
 
@@ -538,17 +536,6 @@ static const uint HalfStep_Sequence[8][4] = {
 };
 ```
 
-> [!NOTE]
-> ### 📷 Figure 18: Half-Step Sequence from Code
->
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 18 PLACEHOLDER ]                        │
-> │               Half-Step Sequence 2D Array Code Listing                 │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
-> * **Caption:** **Figure 18.** Source code definition of the 8-state half-stepping sequence matrix.
-> * *(Insert image: `![Figure 18: Half Step Sequence Code](docs/images/figure18.png)`)*
 
 #### 3.4.6 I/O and Interrupt Initialization
 
@@ -586,13 +573,7 @@ gpio_pull_up(piezo_pin);
 > ### 📷 Figure 19: Function `setup_io` / Hardware Initialization
 >
 > ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 19 PLACEHOLDER ]                        │
-> │                   setup_io Function Source Code/Flow                   │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
-> * **Caption:** **Figure 19.** Source code for hardware initialization configuring GPIOs, pull-ups, and the optical sensor falling-edge interrupt.
-> * *(Insert image: `![Figure 19: setup_io function](docs/images/figure19.png)`)*
+
 
 #### 3.4.7 Stepper Motor Homing & Calibration (`calibrate_motor`)
 
@@ -647,17 +628,6 @@ User feedback is communicated through the LED and monitored via the pushbutton:
 * **Active Operation (`CALIBRATING`, `DISPENSING`):** LED remains solid ON.
 * **Error Alert (`ERROR`):** LED blinks 5 times if a drop fails to register on the piezo sensor.
 
-> [!NOTE]
-> ### 📷 Figure 20: Function `handle_led_state`
->
-> ```
-> ┌────────────────────────────────────────────────────────────────────────┐
-> │                       [ FIGURE 20 PLACEHOLDER ]                        │
-> │                   handle_led_state Function Source                     │
-> └────────────────────────────────────────────────────────────────────────┘
-> ```
-> * **Caption:** **Figure 20.** Source code for `handle_led_state` providing visual status indication and error reporting.
-> * *(Insert image: `![Figure 20: blink_led function](docs/images/figure20.png)`)*
 
 ```c
 void handle_led_state(void) {
