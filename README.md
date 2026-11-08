@@ -261,6 +261,8 @@ The **Opto-Fork Sensor** (optical slotted switch) consists of an infrared LED em
 
 The system interfaces the **Raspberry Pi Pico** microcontroller with motor drivers, sensors, and human-machine interface components:
 
+### 📷 Figure 12: Connection Overview
+
 ```mermaid
 graph TD
     subgraph RP2040 ["Raspberry Pi Pico (RP2040 Microcontroller)"]
@@ -291,7 +293,6 @@ graph TD
 ```
 
 > [!NOTE]
-> ### 📷 Figure 12: Connection Overview
 >
 >
 > <div align="center">
@@ -304,6 +305,8 @@ graph TD
 ### 3.2 Design Overview & Finite State Machine (FSM)
 
 The operational firmware follows a deterministic **Finite State Machine (FSM)** defined by the `enum State` in code:
+
+### 📷 Figure 13: Design flow chat
 
 ```mermaid
 stateDiagram-v2
@@ -432,7 +435,7 @@ The physical mechanism consists of a 3D-printable cylindrical dispenser base and
 When a compartment rotates above the drop opening, the pill falls under gravity onto the piezo sensor. Calculating the theoretical free-fall time determines the software detection window.
 
 > [!TIP]
-> ### 🧮 Calculation 1: Pill Free-Fall Time
+> ### 🧮 Calculation of the Pill Free-Fall Time
 >
 > To determine the arrival window for the pill dropping from the dispenser base to the piezo sensor plate, the theoretical free-fall time under gravity is computed using kinematic free-fall equations:
 >
@@ -586,7 +589,10 @@ void calibrate_motor(void) {
 
 Advancing the carousel by one compartment ($1/8$ of a full rotation) requires:
 
-$$\text{Steps per Slice} = \frac{\text{calib\_index}}{8} \approx \frac{4096}{8} = 512\text{ half-steps}$$
+\[
+\text{Steps per Slice} = \frac{\text{calib\_index}}{8} 
+\approx \frac{4096}{8} = 512\text{ half-steps}
+\]
 
 ```c
 void run_motor(int steps) {
